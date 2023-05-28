@@ -7,6 +7,7 @@ using System.Linq;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
+
 namespace prog_spel
     {
     public class Game1 : Game
@@ -18,6 +19,7 @@ namespace prog_spel
         Texture2D Boss;
         Texture2D model1;
         Texture2D Gubbe;
+        Texture2D life;
         Vector2 Gubbe_pos;
         Vector2 Gubbe_vel;
         Vector2 model1_pos;
@@ -25,28 +27,35 @@ namespace prog_spel
         Vector2 Boss_pos;
         Vector2 Boss_vel;
         List<Vector2> coin_pos_list = new List<Vector2>();
+        List<Vector2> life_pos_list = new List<Vector2>();
         Rectangle rec_Gubbe;
         Rectangle rec_coin;
+        Rectangle rec_life;
         int coinsCollected = 0;
         int coinCount = 0;
+        int coinsCollected2 = 0;
+        int coinCount2 = 0;
         int health;
         bool hit = false;
+      
         Random slump = new Random();
         private SpriteFont spriteFont;
-        private int totalCoinsCollected = 0;
+        private int totalCoinsCollected = 25;
         private float model1Timer = 0f;
         private const float model1MovementDuration = 2f;
         bool isBossActive = false;
         bool isHitCooldown = false;
         float hitCooldownDuration = 1f; 
         float elapsedHitCooldownTime = 0f;
-      
         bool menu = true;
         bool playing = false;
-        
         int difficulty = 1;
         string mode;
         
+
+
+
+
 
         // healing behövs, lägg till ett hjärta som man kan hämta upp.
 
@@ -74,6 +83,7 @@ namespace prog_spel
             Gubbe_pos = GetRandomPositionWithinBounds(50); // Get random position for Gubbe
             model1_pos = GetRandomPositionAwayFromGubbe(Gubbe_pos, 300); // Get random position for model1 away from Gubbe
             SpawnCoins();
+            
           
             base.Initialize();
         }
@@ -86,7 +96,8 @@ namespace prog_spel
             model1 = Content.Load<Texture2D>("Bilder/model1");
             Gubbe = Content.Load<Texture2D>("Bilder/Gubbe");
             spriteFont = Content.Load<SpriteFont>("Fonts/File");
-            
+            life = Content.Load<Texture2D>("Bilder/life");
+
         }
 
         protected override void Update(GameTime gameTime)
@@ -174,18 +185,45 @@ namespace prog_spel
                     {
                         coin_pos_list.Remove(cn);
                         coinsCollected++;
+                        coinsCollected2++;
                         totalCoinsCollected++;
                         hit = false;
                     }
                 }
+                foreach (Vector2 cn in life_pos_list.ToList())
+                {
+                    rec_life = new Rectangle(Convert.ToInt32(cn.X), Convert.ToInt32(cn.Y), (int)(life.Width * 0.2f), (int)(life.Height * 0.2f));
+                    hit = CheckCollisionlife(rec_Gubbe, rec_life);
+
+                    if (hit == true)
+                    {
+                        life_pos_list.Remove(cn);
+                        health++;
+                        hit = false;
+                    }
+                }
+                coinCount2 = coinsCollected2;
+                if (coinCount2 % 12 == 0 && coinsCollected2 > 0)
+                {
+                    SpawnLife();
+                    coinsCollected2 = 0;
+                }
 
                 coinCount = coinsCollected;
+                
 
                 if (coinCount % 5 == 0 && coinsCollected > 0)
                 {
                     SpawnCoins();
+                   
                     coinsCollected = 0;
                 }
+               
+
+
+
+
+
                 model1_pos += model1_vel;
 
                 float distanceToGubbe = Vector2.Distance(model1_pos, Gubbe_pos);
@@ -227,8 +265,9 @@ namespace prog_spel
                 Rectangle rec_model1 = new Rectangle(Convert.ToInt32(model1_pos.X), Convert.ToInt32(model1_pos.Y), (int)(model1.Width * 0.2f), (int)(model1.Height * 0.2f));
                 if (rec_Gubbe.Intersects(rec_model1))
                 {
-                    model1_pos.X = Window.ClientBounds.Width - model1.Width;
-                    model1_pos.Y = slump.Next(0, Window.ClientBounds.Height - model1.Height);
+                   
+                    model1_pos.Y = slump.Next(0, (int)(Window.ClientBounds.Height - model1.Height * 0.2f));
+                    model1_pos.X = slump.Next(0, (int)(Window.ClientBounds.Height - model1.Height * 0.2f));
                     health--;
                 }
 
@@ -290,7 +329,7 @@ namespace prog_spel
                 // Check collision between Gubbe and Boss (if Boss is active)
                 if (isBossActive && !isHitCooldown)
                 {
-                    Rectangle rec_Boss = new Rectangle((int)Boss_pos.X, (int)Boss_pos.Y, (int)((int)Boss.Width * 0.9f), (int)((int)Boss.Height * 0.9f));
+                    Rectangle rec_Boss = new Rectangle((int)Boss_pos.X, (int)Boss_pos.Y, (int)((int)Boss.Width * 0.8f), (int)((int)Boss.Height * 0.8f));
 
                     if (rec_Gubbe.Intersects(rec_Boss))
                     {
@@ -317,10 +356,25 @@ namespace prog_spel
                     if (Boss_pos.Y <= 0 || Boss_pos.Y >= _graphics.PreferredBackBufferHeight - Boss.Height)
                         Boss_vel.Y *= -1;
                 }
+                if (Boss_pos.X > Window.ClientBounds.Width - (Boss.Width * 0.8f))
+                    Boss_pos.X = Window.ClientBounds.Width - (Boss.Width * 0.8f);
+
+                if (Boss_pos.X < 0)
+                    Boss_pos.X = 0;
+
+                if (Boss_pos.Y > Window.ClientBounds.Height - (Boss.Height * 0.8f))
+                    Boss_pos.Y = Window.ClientBounds.Height - (Boss.Height * 0.8f);
+
+                if (Boss_pos.Y < 0)
+                    Boss_pos.Y = 0;
 
                 if (health <= 0)
                 {
-                    Exit();
+                    menu = true;
+                    playing = false;
+                    totalCoinsCollected = 0;
+                    isBossActive = false;
+                    
 
                 }
             }
@@ -341,7 +395,7 @@ namespace prog_spel
                 Vector2 textPos = new Vector2(200, 40);
                 _spriteBatch.DrawString(spriteFont, text, textPos, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
                 string text1 = "To go back to menu press L!";
-                Vector2 text1Pos = new Vector2(200, 100);
+                Vector2 text1Pos = new Vector2(200, 140);
                 _spriteBatch.DrawString(spriteFont, text1, text1Pos, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
 
                 KeyboardState keyboardState = Keyboard.GetState();
@@ -381,12 +435,16 @@ namespace prog_spel
                     mode = "Hard";
                 }
                 string diff = "You are currently playing on " + mode + " difficulty";
-                Vector2 diffPos = new Vector2(200, 100);
+                Vector2 diffPos = new Vector2(200, 110);
                 _spriteBatch.DrawString(spriteFont, diff, diffPos, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
                
                 string changeD = "Press 'Z' to change Difficulty to Easy. Press 'X' to change to Normal. Press 'C' to change to Hard." ;
-                Vector2 changePos = new Vector2(200, 160);
+                Vector2 changePos = new Vector2(200, 180);
                 _spriteBatch.DrawString(spriteFont, changeD, changePos, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
+
+                string htp = "HOW TO PLAY! You move with WASD. Collect 50 coins to win!";
+                Vector2 htpPos = new Vector2(200, 250);
+                _spriteBatch.DrawString(spriteFont, htp, htpPos, Color.White, 0f, Vector2.Zero, 2f, SpriteEffects.None, 0f);
                 _spriteBatch.End();
             }
             if (menu == false && playing == true)
@@ -400,18 +458,26 @@ namespace prog_spel
                 }
                 _spriteBatch.Draw(Gubbe, Gubbe_pos, null, Color.White, 0f, Vector2.Zero, 0.20f, SpriteEffects.None, 0f);
 
+                
                 foreach (Vector2 cn in coin_pos_list)
                 {
                     Rectangle coinRect = new Rectangle(Convert.ToInt32(cn.X), Convert.ToInt32(cn.Y), (int)(coin.Width * 0.8f), (int)(coin.Height * 0.8f));
                     _spriteBatch.Draw(coin, coinRect, Color.White);
                 }
+                foreach (Vector2 cn in life_pos_list)
+                {
+                    Rectangle lifeRect = new Rectangle(Convert.ToInt32(cn.X), Convert.ToInt32(cn.Y), (int)(life.Width * 0.2f), (int)(life.Height * 0.2f));
+                    _spriteBatch.Draw(life, lifeRect, Color.White);
+                }
+
+
                 if (!isBossActive)
                 {
                     _spriteBatch.Draw(model1, model1_pos, null, Color.White, 0f, Vector2.Zero, 0.2f, SpriteEffects.None, 0f);
                 }
                 if (isBossActive)
                 {
-                    _spriteBatch.Draw(Boss, Boss_pos, null, Color.White, 0f, Vector2.Zero, 1f, SpriteEffects.None, 0f);
+                    _spriteBatch.Draw(Boss, Boss_pos, null, Color.White, 0f, Vector2.Zero, 0.8f, SpriteEffects.None, 0f);
                 }
                 string text = "Lives: " + health + "   Coins: " + totalCoinsCollected;
                 Vector2 textPosition = new Vector2(10, 10);
@@ -436,6 +502,12 @@ namespace prog_spel
             {
                 return gubbe.Intersects(coin);
             }
+            public bool CheckCollisionlife(Rectangle gubbe, Rectangle life)
+            {
+                return gubbe.Intersects(life);
+            }
+
+
 
             private void SpawnCoins()
             {
@@ -481,7 +553,48 @@ namespace prog_spel
                     coin_pos_list.Add(newCoinPos);
                 }
             }
-            private Vector2 GetRandomPositionWithinBounds(int padding)
+        private void SpawnLife()
+        {
+            life_pos_list.Clear(); // Clear the list of existing coins
+
+            for (int i = 0; i < 1; i++)
+            {
+                // Generate a new coin position
+                Vector2 newPos;
+                bool isOverlapping;
+
+                do
+                {
+                    isOverlapping = false;
+
+                    // Generate random position
+                    newPos.X = slump.Next(0, Window.ClientBounds.Width - 100);
+                    newPos.Y = slump.Next(0, Window.ClientBounds.Height - 100);
+
+                    // Check if the new coin position is too close to any existing coins
+                    foreach (Vector2 existingPos1 in life_pos_list)
+                    {
+                        if (Vector2.Distance(newPos, existingPos1) < 100)
+                        {
+                            isOverlapping = true;
+                            break;
+                        }
+                    }
+
+                    // Check if the new coin position is too close to the Gubbe character
+                    if (Vector2.Distance(newPos, Gubbe_pos) < 50)
+                    {
+                        isOverlapping = true;
+                    }
+                    
+                }
+                while (isOverlapping);
+
+                // Add the non-overlapping coin position to the list
+                life_pos_list.Add(newPos);
+            }
+        }
+        private Vector2 GetRandomPositionWithinBounds(int padding)
             {
                 int minX = padding;
                 int minY = padding;
@@ -507,5 +620,9 @@ namespace prog_spel
                 return position;
             }
 
-        }
+        
+
     }
+
+}
+    
